@@ -413,9 +413,8 @@ def no_clue_score(sim_2d_wit, sim_2d_eng, sol):
                 continue
             sim_a = sim_2d_wit[i][j]
             sim_b = sim_2d_eng[sol[i]][sol[j]]
-            if sim_b >= 0.8:
+            if sim_b >= 0.8 and sim_a >= 0.1:
                 score += 100
-                print(sol[i], sol[j])
             # elif sim_b >= 0.6:
             #     score += 10
             elif sim_a >= 0.4 and sim_b >= 0.2:
