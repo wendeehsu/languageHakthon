@@ -2,11 +2,17 @@ from collections import deque
 import nltk
 import numpy
 import pickle
+from random import shuffle
 import re
 
 
 WIT = False
 ENG = True
+
+WORDS = 24
+
+SOLUTION = [0, 22, 8, 21, 19, 11, 13, 1, 3, 15, 16, 5, 6, 23, 14, \
+            9, 2, 7, 4, 10, 12, 17, 18, 20]
 
 eng_vec = {}
 
@@ -50,17 +56,45 @@ def main():
         for j in range(len(wit_words)):
             wit_similarity[i][j] = wit_sim(wit_words[i], wit_words[j])
 
+    # Check the highest similarities
+    # all_eng_s = [s for s_li in eng_similarity for s in s_li]
+    # all_eng_s.sort(reverse=True)
+    # for s in all_eng_s[24:54]:
+    #     print('%.2f' % s)
+    # print('---')
+    # all_wit_s = [s for s_li in wit_similarity for s in s_li]
+    # all_wit_s.sort(reverse=True)
+    # for s in all_wit_s[24:74]:
+    #     print('%.2f' % s)
+
+    # Print sim table.
+    print('wit \\ eng')
+    for i in range(WORDS):
+        for j in range(WORDS):
+            if i >= j:
+                print('%.2f' % wit_similarity[i][j], end=' ')
+            else:
+                print('%.2f' % eng_similarity[SOLUTION[i]][SOLUTION[j]], end=' ')
+        print()
+
+    # Try to use the clues to taboo but failed :(
+    #
     # print(wit_similarity)
-
-    wit_dict = {'dətay': 'bird', "tl'ol": 'rope'}
-    correlation = {}
-
-    print(eng_sim(Word('wing', lang=ENG), Word('bat', lang=ENG)))
-
+    #
+    # wit_dict = {'dətay': 'bird', "tl'ol": 'rope'}
+    # correlation = {}
+    #
+    # print(eng_sim(Word('wing', lang=ENG), Word('bat', lang=ENG)))
+    #
     # print(correctness(eng_similarity, wit_similarity,
     #                   [0, 22, 8, 21, 19, 11, 13, 1, 3, 15, 16, 5,
     #                    6,23, 14, 9, 2, 7, 4, 10, 12, 17, 18, 20]))
     # try_taboo(eng_similarity, wit_similarity)
+
+    # no_clue_taboo(eng_similarity, wit_similarity)
+    # print(no_clue_score(eng_similarity, wit_similarity,
+    #                     [0, 22, 8, 21, 19, 11, 13, 1, 3, 15, 16, 5,
+    #                      6,23, 14, 9, 2, 7, 4, 10, 12, 17, 18, 20]))
 
 
 class W:
@@ -84,6 +118,12 @@ class W:
 
     def __get__(self):
         return self._word
+
+    def __eq__(self, other):
+        return self.__str__() == other.__str__()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def lang(self):
@@ -291,19 +331,19 @@ def eng_sim(word1, word2):
 def wit_sim(word1, word2):
     if word1 == word2:
         return 1
+    # print(len(word1), word1)
     sim = 0
     for w1 in word1:
         for w2 in word2:
             if w1 == w2:
-                sim += 1 / (len(word1) * len(word2))
+                if len(word1) == 1 or len(word2) == 1:
+                    sim += 0.4
+                else:
+                    sim += 0.2
             else:
-                min_len = len(w1) if len(w1) < len(w2) \
-                          else (len(w2) if len(w2) < len(w1) else len(w1)-1)
-                if nltk.edit_distance(w1, w2) <= 1:
-                    sim += 0.75 / (len(word1) * len(word2))
-                elif nltk.edit_distance(w1, w2) <= 2:
-                    sim += 0.25 / (len(word1) * len(word2))
-    return min(sim, 0.9)
+                if nltk.edit_distance(w1, w2) == 1:
+                    sim += 0.1
+    return sim
 
 
 def correctness(li_1, li_2, sol):
@@ -354,9 +394,92 @@ def try_taboo(sim1, sim2):
             print(new_best)
 
 
-def solve(sim1, sim2):
-    clues = deque()
-    clues.append(('dətay', 'bird'), ("tl'ol", 'rope'))
+def no_clue_score(sim_2d_wit, sim_2d_eng, sol):
+    """
+    wit: >= 0.5 is high
+    eng: >= 0.6 is high
+    """
+    score = 0
+    for i in range(WORDS):
+        for j in range(i, WORDS):
+            if i == j:
+                continue
+            sim_a = sim_2d_wit[i][j]
+            sim_b = sim_2d_eng[sol[i]][sol[j]]
+            if sim_a >= 0.5 and sim_b >= 0.6:
+                score += 10
+            elif sim_a >= 0.4 and sim_b >= 0.4:
+                score += 3
+            # elif sim_a >= 0.3 and sim_b >= 0.2:
+            #     score += 1
+    return score
+
+
+def no_clue_taboo(sim1, sim2):
+    next_stack = []
+    starting = list(range(len(sim1)))
+    shuffle(starting)
+    taboo = deque(maxlen=100)
+    taboo.append(hash(tuple(starting)))
+    next_stack.append(starting)
+
+    best_sol = tuple(starting)
+    best_score = no_clue_score(sim1, sim2, starting)
+
+    counter = 0
+
+    while len(next_stack):
+        cur_step = next_stack.pop()
+        best_next = list(cur_step)
+        best_next_score = -1
+        for i in range(WORDS):
+            for j in range(i+1, WORDS):
+                for k in range(j+1, WORDS):
+                    all_pos = [(i, j, k), (i, k, j), (j, i, k), (j, k, i),
+                               (k, i, j), (k, j, i)]
+                    for x, y, z in all_pos:
+                        new_try = list(cur_step)
+                        new_try[i], new_try[j], new_try[k] = \
+                            new_try[x], new_try[y], new_try[z]
+                        new_tuple = tuple(new_try)
+                        if hash(new_tuple) in taboo:
+                            continue
+                        new_cor = no_clue_score(sim1, sim2, new_try)
+                        if new_cor > best_next_score:
+                            best_next_score = new_cor
+                            best_next = new_try
+        next_stack.append(best_next)
+        taboo.append(hash(tuple(best_next)))
+
+        if best_next_score > best_score:
+            best_sol = tuple(best_next)
+            best_score = best_next_score
+
+        if counter % 10 == 0:
+            print(counter)
+            print(best_score, best_next_score)
+            print('best_sol :', end=' ')
+            for s in best_sol:
+                print('%2i' % s, end=' ')
+            print()
+            sol_diff = 0
+            for i in range(WORDS):
+                sol_diff += 1 if SOLUTION[i] != best_sol[i] else 0
+            print(sol_diff)
+            print('best_next:', end=' ')
+            for s in best_next:
+                print('%2i' % s, end=' ')
+            print()
+            sol_diff = 0
+            for i in range(WORDS):
+                sol_diff += 1 if SOLUTION[i] != best_next[i] else 0
+            print(sol_diff)
+            print('SOLUTION :', end=' ')
+            for s in SOLUTION:
+                print('%2i' % s, end=' ')
+            print()
+
+        counter += 1
 
 
 main()
