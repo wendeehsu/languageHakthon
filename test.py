@@ -4,7 +4,7 @@ import numpy
 import pickle
 from random import shuffle
 import re
-
+from difflib import SequenceMatcher
 
 WIT = False
 ENG = True
@@ -15,7 +15,27 @@ SOLUTION = [0,7,16,8,18,11,12,17,2,15,19,5,20,6,14,9,10,21,22,4,23,3,1,13]
 
 
 eng_vec = {}
+witVec = {}
 
+def SetWitDictionary(wit_words, witVec):
+    rawVector = ""
+    for i in wit_words:
+        rawVector += str(i)
+    rawWitList = list(set(rawVector))
+    vec = "qwertyuiopasdfghjklzxcvbnm"
+    for i,w in enumerate(rawWitList):
+        witVec[w] = vec[i]
+
+def convert(witLan):
+    s = ""
+    for i in str(witLan):
+        s += witVec[i]
+    return s
+
+def wit_sim(a,b):
+    a = convert(a)
+    b = convert(b)
+    return SequenceMatcher(None, a, b).ratio()
 
 def main():
     global eng_vec
@@ -51,6 +71,8 @@ def main():
     for i in range(len(eng_words)):
         for j in range(len(eng_words)):
             eng_similarity[i][j] = eng_sim(eng_words[i], eng_words[j])
+
+    SetWitDictionary(wit_words, witVec)
 
     wit_similarity = [[0.0 for i in range(len(wit_words))] \
                       for j in range(len(wit_words))]
@@ -333,24 +355,6 @@ def eng_sim(word1, word2):
             return (0.7*sim[-1]+0.3*sim[-2])
         else:
             return (sim[-1]+sim[-2]) / 2
-
-
-def wit_sim(word1, word2):
-    if word1 == word2:
-        return 1
-    # print(len(word1), word1)
-    sim = 0
-    for w1 in word1:
-        for w2 in word2:
-            if w1 == w2:
-                if len(word1) == 1 or len(word2) == 1:
-                    sim += 0.4
-                else:
-                    sim += 0.2
-            else:
-                if nltk.edit_distance(w1, w2) == 1:
-                    sim += 0.1
-    return sim
 
 
 def correctness(li_1, li_2, sol):
