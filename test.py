@@ -11,8 +11,8 @@ ENG = True
 
 WORDS = 24
 
-SOLUTION = [0, 22, 8, 21, 19, 11, 13, 1, 3, 15, 16, 5, 6, 23, 14, \
-            9, 2, 7, 4, 10, 12, 17, 18, 20]
+SOLUTION = [0,7,16,8,18,11,12,17,2,15,19,5,20,6,14,9,10,21,22,4,23,3,1,13]
+
 
 eng_vec = {}
 
@@ -36,6 +36,8 @@ def main():
 
     eng_words = [Word(w, ENG) for w in eng_words_orig]
     wit_words = [Word(w, WIT) for w in wit_words_orig]
+
+    # print(wit_sim(wit_words[6], wit_words[7]))
     while any(w.seperate() for w in wit_words):
         continue
 
@@ -68,14 +70,14 @@ def main():
     #     print('%.2f' % s)
 
     # Print sim table.
-    print('wit \\ eng')
-    for i in range(WORDS):
-        for j in range(WORDS):
-            if i >= j:
-                print('%.2f' % wit_similarity[i][j], end=' ')
-            else:
-                print('%.2f' % eng_similarity[SOLUTION[i]][SOLUTION[j]], end=' ')
-        print()
+    # print('wit \\ eng')
+    # for i in range(WORDS):
+    #     for j in range(WORDS):
+    #         if i >= j:
+    #             print('%.2f' % wit_similarity[i][j], end=' ')
+    #         else:
+    #             print('%.2f' % eng_similarity[SOLUTION[i]][SOLUTION[j]], end=' ')
+    #     print()
 
     # Try to use the clues to taboo but failed :(
     #
@@ -91,7 +93,8 @@ def main():
     #                    6,23, 14, 9, 2, 7, 4, 10, 12, 17, 18, 20]))
     # try_taboo(eng_similarity, wit_similarity)
 
-    # no_clue_taboo(eng_similarity, wit_similarity)
+    no_clue_taboo(wit_similarity, eng_similarity)
+    # print(no_clue_score(wit_similarity, eng_similarity))
     # print(no_clue_score(eng_similarity, wit_similarity,
     #                     [0, 22, 8, 21, 19, 11, 13, 1, 3, 15, 16, 5,
     #                      6,23, 14, 9, 2, 7, 4, 10, 12, 17, 18, 20]))
@@ -232,7 +235,7 @@ class Word:
 
     @property
     def sep_word(self):
-        return tuple(self._word)
+        return tuple(self._word_li)
 
     @property
     def words(self):
@@ -321,11 +324,15 @@ def eng_sim(word1, word2):
     for w1 in word1:
         for w2 in word2:
             sim.append(cos_sim(w1, w2))
+
     sim.sort()
     if len(sim) == 1:
         return sim[-1]
     else:
-        return (sim[-1]+sim[-2]) / 2
+        if(sim[-1] > 0.85):
+            return (0.7*sim[-1]+0.3*sim[-2])
+        else:
+            return (sim[-1]+sim[-2]) / 2
 
 
 def wit_sim(word1, word2):
@@ -406,10 +413,19 @@ def no_clue_score(sim_2d_wit, sim_2d_eng, sol):
                 continue
             sim_a = sim_2d_wit[i][j]
             sim_b = sim_2d_eng[sol[i]][sol[j]]
-            if sim_a >= 0.5 and sim_b >= 0.6:
-                score += 10
-            elif sim_a >= 0.4 and sim_b >= 0.4:
+            if sim_b >= 0.8:
+                score += 100
+                print(sol[i], sol[j])
+            # elif sim_b >= 0.6:
+            #     score += 10
+            elif sim_a >= 0.4 and sim_b >= 0.2:
                 score += 3
+            # elif sim_a >= 0.4:
+            #     score += 3
+            # elif sim_a >= 0.2 and sim_b >= 0.2:
+            #     score += 1
+            # elif sim_a >= 0.2 and sim_b >= 0.1:
+            #     score += 0.5
             # elif sim_a >= 0.3 and sim_b >= 0.2:
             #     score += 1
     return score
@@ -419,6 +435,7 @@ def no_clue_taboo(sim1, sim2):
     next_stack = []
     starting = list(range(len(sim1)))
     shuffle(starting)
+    # starting = list(SOLUTION)
     taboo = deque(maxlen=100)
     taboo.append(hash(tuple(starting)))
     next_stack.append(starting)
